@@ -114,6 +114,12 @@ main {
   margin: 0 auto;
 }
 
+/* 주소의 #create 또는 #qr-board로 직접 접근할 때도 상단 메뉴에 제목이 가리지 않습니다. */
+#create,
+#qr-board {
+  scroll-margin-top: 94px;
+}
+
 .hero {
   max-width: 860px;
   padding: 84px 0 54px;

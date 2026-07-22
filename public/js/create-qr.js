@@ -19,6 +19,8 @@ const refreshListButton = document.querySelector("#refresh-list");
 const listMessage = document.querySelector("#list-message");
 const emptyList = document.querySelector("#empty-list");
 const qrList = document.querySelector("#qr-list");
+const siteHeader = document.querySelector(".site-header");
+const navigationLinks = [...document.querySelectorAll('.nav-link[href^="#"]')];
 
 const sessionKey = "qr-board-admin-code";
 const demoAdminCode = "ADMIN";
@@ -32,6 +34,84 @@ const dateFormatter = new Intl.DateTimeFormat("ko-KR", {
 });
 
 let activeAdminCode = sessionStorage.getItem(sessionKey) ?? "";
+
+// 고정된 상단 메뉴 높이를 제외하고 각 영역의 제목이 정확히 보이도록 이동합니다.
+function moveToNavigationTarget(hash, updateAddress = true) {
+  const target = document.querySelector(hash);
+
+  if (!target) {
+    return;
+  }
+
+  const headerHeight = siteHeader?.getBoundingClientRect().height ?? 0;
+  const targetTop = window.scrollY + target.getBoundingClientRect().top;
+  const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  window.scrollTo({
+    top: Math.max(0, targetTop - headerHeight - 18),
+    behavior: prefersReducedMotion ? "auto" : "smooth",
+  });
+
+  navigationLinks.forEach((link) => {
+    link.classList.toggle("is-active", link.hash === hash);
+    link.setAttribute("aria-current", link.hash === hash ? "location" : "false");
+  });
+
+  if (updateAddress) {
+    window.history.replaceState(null, "", hash);
+  }
+}
+
+// 사용자가 직접 화면을 스크롤해도 현재 보이는 영역에 맞춰 메뉴 상태를 변경합니다.
+function updateActiveNavigation() {
+  const board = document.querySelector("#qr-board");
+  const headerHeight = siteHeader?.getBoundingClientRect().height ?? 0;
+  const currentLine = window.scrollY + headerHeight + 40;
+  const activeHash = board && currentLine >= board.offsetTop ? "#qr-board" : "#create";
+
+  navigationLinks.forEach((link) => {
+    const isActive = link.hash === activeHash;
+    link.classList.toggle("is-active", isActive);
+
+    if (isActive) {
+      link.setAttribute("aria-current", "location");
+    } else {
+      link.removeAttribute("aria-current");
+    }
+  });
+}
+
+navigationLinks.forEach((link) => {
+  link.addEventListener("click", (event) => {
+    event.preventDefault();
+    moveToNavigationTarget(link.hash);
+  });
+});
+
+let navigationUpdateRequested = false;
+window.addEventListener(
+  "scroll",
+  () => {
+    if (navigationUpdateRequested) {
+      return;
+    }
+
+    navigationUpdateRequested = true;
+    window.requestAnimationFrame(() => {
+      updateActiveNavigation();
+      navigationUpdateRequested = false;
+    });
+  },
+  { passive: true },
+);
+
+window.addEventListener("load", () => {
+  if (window.location.hash === "#create" || window.location.hash === "#qr-board") {
+    moveToNavigationTarget(window.location.hash, false);
+  } else {
+    updateActiveNavigation();
+  }
+});
 
 function setMessage(element, message, type = "") {
   element.textContent = message;
