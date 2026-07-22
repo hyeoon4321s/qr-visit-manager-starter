@@ -3,51 +3,71 @@
   <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="웹 주소를 QR 코드로 만들고 브라우저에 보관합니다.">
-    <title>간단 QR 만들기</title>
+    <meta name="description" content="관리자가 QR을 만들고 누구나 QR 목록과 방문 통계를 확인합니다.">
+    <title>QR 링크 보드</title>
     <link rel="stylesheet" href="/css/style.css">
     <script src="/js/create-qr.js" defer></script>
   </head>
   <body>
     <header class="site-header">
-      <a class="brand" href="/" aria-label="간단 QR 만들기 홈">
+      <a class="brand" href="/" aria-label="QR 링크 보드 홈">
         <span class="brand-mark" aria-hidden="true">⌗</span>
-        <span>간단 QR 만들기</span>
+        <span>QR 링크 보드</span>
       </a>
       <nav class="main-nav" aria-label="주요 메뉴">
-        <a class="nav-link is-active" href="#make-qr">QR 만들기</a>
-        <a class="nav-link" href="#saved-qr">만든 QR 목록</a>
+        <a class="nav-link" href="#create">QR 만들기</a>
+        <a class="nav-link is-active" href="#qr-board">공개 QR 목록</a>
       </nav>
     </header>
 
     <main>
       <section class="hero">
-        <div class="eyebrow">로그인 없이 · 주소만 입력하면 · 바로 완성</div>
-        <h1>링크 하나로<br><span>QR 코드를 만드세요.</span></h1>
+        <div class="eyebrow">만들기는 관리자만 · 목록과 통계는 누구나</div>
+        <h1>QR을 만들고<br><span>방문 현황을 함께 보세요.</span></h1>
         <p>
-          웹 주소를 입력하면 바로 스캔할 수 있는 QR 코드를 만듭니다.
-          생성한 QR은 이 화면 아래에 차곡차곡 보관됩니다.
+          관리자는 ADMIN을 입력해 새로운 QR을 만들 수 있습니다.
+          방문자는 아래에서 생성된 QR과 누적 접속 횟수를 바로 확인할 수 있습니다.
         </p>
       </section>
 
-      <section id="make-qr" class="workspace" aria-label="QR 생성 작업 영역">
+      <section id="create" class="workspace" aria-label="QR 생성 작업 영역">
         <article class="panel form-panel">
           <div class="panel-heading">
             <div>
-              <span class="step-label">1단계</span>
-              <h2>웹 주소 입력</h2>
+              <span class="step-label">관리자 기능</span>
+              <h2>새 QR 만들기</h2>
             </div>
-            <span class="status-chip">환경변수 필요 없음</span>
+            <span id="lock-chip" class="status-chip">잠김</span>
           </div>
 
-          <form id="qr-form">
-            <label class="field-label" for="title">QR 이름 <small>(선택)</small></label>
+          <form id="unlock-form" class="unlock-form">
+            <label class="field-label" for="admin-code">관리자 코드</label>
+            <div class="access-row">
+              <input
+                id="admin-code"
+                name="adminCode"
+                type="text"
+                placeholder="ADMIN 입력"
+                autocomplete="off"
+                required
+              >
+              <button class="secondary-button" type="submit">입력</button>
+            </div>
+            <p class="field-help">학습용 관리자 코드는 <strong>ADMIN</strong>입니다.</p>
+            <p id="unlock-message" class="form-message" role="status" aria-live="polite"></p>
+          </form>
+
+          <form id="qr-form" hidden>
+            <div class="unlocked-note">관리자 생성 기능이 열렸습니다.</div>
+
+            <label class="field-label" for="title">QR 이름</label>
             <input
               id="title"
               name="title"
               type="text"
               maxlength="100"
               placeholder="예: 메탈 대시 게임"
+              required
             >
 
             <label class="field-label" for="url">웹 주소</label>
@@ -60,7 +80,7 @@
               autocomplete="url"
               required
             >
-            <p class="field-help">http:// 또는 https://로 시작하는 주소를 입력하세요.</p>
+            <p class="field-help">QR 스캔 횟수를 기록한 뒤 이 주소로 이동합니다.</p>
 
             <button id="submit-button" class="primary-button" type="submit">
               <span>QR 코드 만들기</span>
@@ -73,7 +93,7 @@
         <article class="panel preview-panel">
           <div class="panel-heading">
             <div>
-              <span class="step-label">2단계</span>
+              <span class="step-label">생성 결과</span>
               <h2>QR 확인 및 내려받기</h2>
             </div>
           </div>
@@ -82,8 +102,8 @@
             <div class="empty-qr" aria-hidden="true">
               <span></span><span></span><span></span>
             </div>
-            <strong>아직 만든 QR이 없습니다</strong>
-            <p>왼쪽에 웹 주소를 입력하고 만들기 버튼을 눌러 주세요.</p>
+            <strong>관리자 생성 기능</strong>
+            <p>ADMIN을 입력하고 QR 이름과 웹 주소를 작성해 주세요.</p>
           </div>
 
           <div id="qr-result" class="qr-result" hidden>
@@ -93,7 +113,7 @@
             </div>
             <h3 id="result-title"></h3>
             <div class="copy-row">
-              <input id="result-url" type="text" readonly aria-label="QR 웹 주소">
+              <input id="tracking-url" type="text" readonly aria-label="QR 추적 주소">
               <button id="copy-url" class="secondary-button" type="button">주소 복사</button>
             </div>
             <a id="download-qr" class="primary-button download-button" download="qr-code.png">
@@ -103,29 +123,30 @@
         </article>
       </section>
 
-      <section id="saved-qr" class="saved-section" aria-labelledby="saved-title">
+      <section id="qr-board" class="saved-section" aria-labelledby="board-title">
         <div class="list-heading">
           <div>
-            <span class="eyebrow">브라우저에 보관됨</span>
-            <h2 id="saved-title">내가 만든 QR 코드</h2>
+            <span class="eyebrow">방문자 공개 화면</span>
+            <h2 id="board-title">생성된 QR과 방문 통계</h2>
           </div>
           <div class="saved-actions">
-            <span id="saved-count" class="status-chip">0개</span>
-            <button id="clear-all" class="secondary-button" type="button">전체 삭제</button>
+            <span id="summary-count" class="status-chip">QR 0개 · 방문 0회</span>
+            <button id="refresh-list" class="secondary-button" type="button">새로고침</button>
           </div>
         </div>
 
-        <div id="empty-list" class="panel empty-list">
-          <strong>저장된 QR 코드가 없습니다.</strong>
-          <p>QR을 만들면 방명록처럼 이곳에 새 카드가 추가됩니다.</p>
+        <p id="list-message" class="form-message" role="status" aria-live="polite"></p>
+        <div id="empty-list" class="panel empty-list" hidden>
+          <strong>아직 생성된 QR 코드가 없습니다.</strong>
+          <p>관리자가 첫 QR을 만들면 이곳에서 누구나 확인할 수 있습니다.</p>
         </div>
         <div id="qr-list" class="qr-gallery" aria-live="polite"></div>
       </section>
     </main>
 
     <footer>
-      <span>간단 QR 만들기</span>
-      <span>데이터베이스와 로그인 없이 사용하는 QR 생성 도구</span>
+      <span>QR 링크 보드</span>
+      <span>개인정보 없이 누적 접속 횟수만 기록합니다</span>
     </footer>
   </body>
 </html>

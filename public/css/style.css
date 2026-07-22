@@ -1113,6 +1113,63 @@ footer {
   color: #a13c35;
 }
 
+.unlock-form {
+  margin-bottom: 24px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid var(--line);
+}
+
+.access-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+}
+
+.access-row .secondary-button {
+  min-width: 84px;
+}
+
+.unlocked-note {
+  margin-bottom: 22px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  color: var(--forest);
+  background: var(--lime-soft);
+  font-size: 0.82rem;
+  font-weight: 750;
+}
+
+.public-stat-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.public-stat {
+  padding: 10px 11px;
+  border-radius: 11px;
+  background: var(--cream);
+}
+
+.public-stat span,
+.public-stat strong {
+  display: block;
+}
+
+.public-stat span {
+  margin-bottom: 5px;
+  color: var(--ink-soft);
+  font-size: 0.66rem;
+}
+
+.public-stat strong {
+  overflow: hidden;
+  font-size: 0.78rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 @media (max-width: 900px) {
   .qr-gallery {
     grid-template-columns: 1fr;
@@ -1137,5 +1194,9 @@ footer {
 
   .saved-card-actions {
     grid-column: 1 / -1;
+  }
+
+  .access-row {
+    grid-template-columns: 1fr;
   }
 }

@@ -1,3 +1,7 @@
+const unlockForm = document.querySelector("#unlock-form");
+const adminCodeInput = document.querySelector("#admin-code");
+const unlockMessage = document.querySelector("#unlock-message");
+const lockChip = document.querySelector("#lock-chip");
 const form = document.querySelector("#qr-form");
 const titleInput = document.querySelector("#title");
 const urlInput = document.querySelector("#url");
@@ -7,16 +11,18 @@ const emptyPreview = document.querySelector("#empty-preview");
 const qrResult = document.querySelector("#qr-result");
 const qrImage = document.querySelector("#qr-image");
 const resultTitle = document.querySelector("#result-title");
-const resultUrl = document.querySelector("#result-url");
+const trackingUrlInput = document.querySelector("#tracking-url");
 const copyUrlButton = document.querySelector("#copy-url");
 const downloadQrLink = document.querySelector("#download-qr");
-const savedCount = document.querySelector("#saved-count");
-const clearAllButton = document.querySelector("#clear-all");
+const summaryCount = document.querySelector("#summary-count");
+const refreshListButton = document.querySelector("#refresh-list");
+const listMessage = document.querySelector("#list-message");
 const emptyList = document.querySelector("#empty-list");
 const qrList = document.querySelector("#qr-list");
 
-const storageKey = "simple-qr-history-v1";
-const maximumSavedItems = 30;
+const sessionKey = "qr-board-admin-code";
+const demoAdminCode = "ADMIN";
+const numberFormatter = new Intl.NumberFormat("ko-KR");
 const dateFormatter = new Intl.DateTimeFormat("ko-KR", {
   year: "numeric",
   month: "short",
@@ -25,38 +31,15 @@ const dateFormatter = new Intl.DateTimeFormat("ko-KR", {
   minute: "2-digit",
 });
 
-let savedItems = loadSavedItems();
+let activeAdminCode = sessionStorage.getItem(sessionKey) ?? "";
 
-function loadSavedItems() {
-  try {
-    const parsedItems = JSON.parse(localStorage.getItem(storageKey) ?? "[]");
-    return Array.isArray(parsedItems) ? parsedItems.slice(0, maximumSavedItems) : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveItems() {
-  try {
-    localStorage.setItem(storageKey, JSON.stringify(savedItems));
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-function setMessage(message, type = "") {
-  formMessage.textContent = message;
-  formMessage.className = "form-message";
+function setMessage(element, message, type = "") {
+  element.textContent = message;
+  element.className = "form-message";
 
   if (type) {
-    formMessage.classList.add(`is-${type}`);
+    element.classList.add(`is-${type}`);
   }
-}
-
-function makeSafeFileName(title) {
-  const safeTitle = title.replace(/[\\/:*?"<>|]/g, "-").trim();
-  return `${safeTitle || "qr-code"}.png`;
 }
 
 function createElement(tagName, className, text) {
@@ -73,6 +56,15 @@ function createElement(tagName, className, text) {
   return element;
 }
 
+function makeSafeFileName(title) {
+  const safeTitle = title.replace(/[\\/:*?"<>|]/g, "-").trim();
+  return `${safeTitle || "qr-code"}.png`;
+}
+
+function formatDate(value) {
+  return value ? dateFormatter.format(new Date(value)) : "아직 방문 없음";
+}
+
 async function copyText(value, button) {
   try {
     await navigator.clipboard.writeText(value);
@@ -86,102 +78,136 @@ async function copyText(value, button) {
   }
 }
 
-function removeItem(itemId) {
-  savedItems = savedItems.filter((item) => item.id !== itemId);
-  saveItems();
-  renderSavedItems();
+function unlockCreation(code) {
+  if (code !== demoAdminCode) {
+    activeAdminCode = "";
+    sessionStorage.removeItem(sessionKey);
+    form.hidden = true;
+    lockChip.textContent = "잠김";
+    setMessage(unlockMessage, "ADMIN을 정확히 입력해 주세요.", "error");
+    return false;
+  }
+
+  activeAdminCode = code;
+  sessionStorage.setItem(sessionKey, code);
+  adminCodeInput.value = code;
+  form.hidden = false;
+  lockChip.textContent = "생성 가능";
+  setMessage(unlockMessage, "관리자 생성 기능이 열렸습니다.", "success");
+  return true;
 }
 
-function createQrCard(item) {
+function createQrCard(qrCode) {
   const card = createElement("article", "saved-qr-card");
   const imageFrame = createElement("div", "saved-qr-image");
   const image = document.createElement("img");
-  image.src = item.image;
-  image.alt = `${item.title} QR 코드`;
+  image.src = qrCode.image_url;
+  image.alt = `${qrCode.title} QR 코드`;
   image.loading = "lazy";
   imageFrame.append(image);
 
   const content = createElement("div", "saved-qr-content");
-  const title = createElement("h3", "", item.title);
-  const urlLink = createElement("a", "saved-qr-url", item.url);
-  urlLink.href = item.url;
-  urlLink.target = "_blank";
-  urlLink.rel = "noopener noreferrer";
+  const title = createElement("h3", "", qrCode.title);
+  const targetLink = createElement("a", "saved-qr-url", qrCode.target_value);
+  targetLink.href = qrCode.tracking_url;
+  targetLink.target = "_blank";
+  targetLink.rel = "noopener noreferrer";
+  const stats = createElement("div", "public-stat-row");
+  const visitStat = createElement("div", "public-stat");
+  visitStat.append(
+    createElement("span", "", "누적 접속"),
+    createElement("strong", "", `${numberFormatter.format(qrCode.visit_count)}회`),
+  );
+  const recentStat = createElement("div", "public-stat");
+  recentStat.append(
+    createElement("span", "", "최근 접속"),
+    createElement("strong", "", formatDate(qrCode.last_visited_at)),
+  );
+  stats.append(visitStat, recentStat);
+
   const createdAt = createElement(
     "time",
     "saved-qr-date",
-    dateFormatter.format(new Date(item.createdAt)),
+    `생성 ${formatDate(qrCode.created_at)}`,
   );
-  createdAt.dateTime = item.createdAt;
-  content.append(title, urlLink, createdAt);
+  createdAt.dateTime = qrCode.created_at;
+  content.append(title, targetLink, stats, createdAt);
 
   const actions = createElement("div", "saved-card-actions");
+  const openLink = createElement("a", "icon-button saved-download", "접속하기");
+  openLink.href = qrCode.tracking_url;
+  openLink.target = "_blank";
+  openLink.rel = "noopener noreferrer";
+
   const copyButton = createElement("button", "icon-button", "주소 복사");
   copyButton.type = "button";
-  copyButton.addEventListener("click", () => copyText(item.url, copyButton));
+  copyButton.addEventListener("click", () => copyText(qrCode.tracking_url, copyButton));
 
   const downloadLink = createElement("a", "icon-button saved-download", "PNG 받기");
-  downloadLink.href = item.image;
-  downloadLink.download = makeSafeFileName(item.title);
-
-  const deleteButton = createElement("button", "icon-button danger-button", "삭제");
-  deleteButton.type = "button";
-  deleteButton.addEventListener("click", () => removeItem(item.id));
-  actions.append(copyButton, downloadLink, deleteButton);
+  downloadLink.href = qrCode.image_url;
+  downloadLink.download = makeSafeFileName(qrCode.title);
+  actions.append(openLink, copyButton, downloadLink);
 
   card.append(imageFrame, content, actions);
   return card;
 }
 
-function renderSavedItems() {
-  qrList.replaceChildren(...savedItems.map(createQrCard));
-  emptyList.hidden = savedItems.length > 0;
-  clearAllButton.disabled = savedItems.length === 0;
-  savedCount.textContent = `${savedItems.length}개`;
+async function loadQrCodes() {
+  setMessage(listMessage, "QR 목록과 통계를 불러오는 중입니다...");
+  refreshListButton.disabled = true;
+
+  try {
+    const response = await fetch("/api/qr", { cache: "no-store" });
+    const result = await response.json();
+
+    if (!response.ok) {
+      const details = Array.isArray(result.problems) ? ` ${result.problems.join(" ")}` : "";
+      throw new Error(`${result.error ?? "QR 목록을 불러오지 못했습니다."}${details}`);
+    }
+
+    const visitTotal = result.qrCodes.reduce(
+      (sum, qrCode) => sum + Number(qrCode.visit_count),
+      0,
+    );
+    qrList.replaceChildren(...result.qrCodes.map(createQrCard));
+    emptyList.hidden = result.qrCodes.length > 0;
+    summaryCount.textContent = `QR ${numberFormatter.format(result.qrCodes.length)}개 · 방문 ${numberFormatter.format(visitTotal)}회`;
+    setMessage(listMessage, "최신 목록과 통계를 불러왔습니다.", "success");
+  } catch (error) {
+    qrList.replaceChildren();
+    emptyList.hidden = true;
+    setMessage(listMessage, error.message, "error");
+  } finally {
+    refreshListButton.disabled = false;
+  }
 }
 
-function showResult(item) {
-  qrImage.src = item.image;
-  resultTitle.textContent = item.title;
-  resultUrl.value = item.url;
-  downloadQrLink.href = item.image;
-  downloadQrLink.download = makeSafeFileName(item.title);
-  emptyPreview.hidden = true;
-  qrResult.hidden = false;
-}
+unlockForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  unlockCreation(adminCodeInput.value.trim());
+});
 
 copyUrlButton.addEventListener("click", () => {
-  copyText(resultUrl.value, copyUrlButton);
+  copyText(trackingUrlInput.value, copyUrlButton);
 });
 
-clearAllButton.addEventListener("click", () => {
-  if (!window.confirm("브라우저에 저장된 QR 목록을 모두 삭제할까요?")) {
-    return;
-  }
-
-  savedItems = [];
-  saveItems();
-  renderSavedItems();
-});
+refreshListButton.addEventListener("click", loadQrCodes);
 
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
-  setMessage("");
+  setMessage(formMessage, "");
 
+  const title = titleInput.value.trim();
   const url = urlInput.value.trim();
-  let title = titleInput.value.trim();
 
-  if (!url) {
-    setMessage("웹 주소를 입력해 주세요.", "error");
+  if (!activeAdminCode) {
+    setMessage(formMessage, "먼저 ADMIN을 입력해 주세요.", "error");
     return;
   }
 
-  if (!title) {
-    try {
-      title = new URL(url).hostname;
-    } catch {
-      title = "새 QR 코드";
-    }
+  if (!title || !url) {
+    setMessage(formMessage, "QR 이름과 웹 주소를 모두 입력해 주세요.", "error");
+    return;
   }
 
   submitButton.disabled = true;
@@ -190,8 +216,11 @@ form.addEventListener("submit", async (event) => {
   try {
     const response = await fetch("/api/qr", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ url }),
+      headers: {
+        "Content-Type": "application/json",
+        "x-admin-code": activeAdminCode,
+      },
+      body: JSON.stringify({ title, url }),
     });
     const result = await response.json();
 
@@ -199,32 +228,27 @@ form.addEventListener("submit", async (event) => {
       throw new Error(result.error ?? "QR 코드를 만들지 못했습니다.");
     }
 
-    const item = {
-      id: crypto.randomUUID?.() ?? `${Date.now()}-${Math.random()}`,
-      title,
-      url: result.url,
-      image: result.qrImageDataUrl,
-      createdAt: new Date().toISOString(),
-    };
-
-    savedItems.unshift(item);
-    savedItems = savedItems.slice(0, maximumSavedItems);
-    const wasSaved = saveItems();
-    renderSavedItems();
-    showResult(item);
-    setMessage(
-      wasSaved
-        ? "QR 코드가 생성되고 아래 목록에 저장되었습니다."
-        : "QR은 생성되었지만 브라우저 저장 공간이 부족해 목록 저장은 하지 못했습니다.",
-      wasSaved ? "success" : "error",
-    );
+    qrImage.src = result.qrImageDataUrl;
+    resultTitle.textContent = result.qr.title;
+    trackingUrlInput.value = result.trackingUrl;
+    downloadQrLink.href = result.qrImageDataUrl;
+    downloadQrLink.download = makeSafeFileName(result.qr.title);
+    emptyPreview.hidden = true;
+    qrResult.hidden = false;
+    form.reset();
+    setMessage(formMessage, "QR 코드가 생성되어 공개 목록에 추가되었습니다.", "success");
+    await loadQrCodes();
     qrResult.scrollIntoView({ behavior: "smooth", block: "center" });
   } catch (error) {
-    setMessage(error.message, "error");
+    setMessage(formMessage, error.message, "error");
   } finally {
     submitButton.disabled = false;
     submitButton.firstElementChild.textContent = "QR 코드 만들기";
   }
 });
 
-renderSavedItems();
+if (activeAdminCode === demoAdminCode) {
+  unlockCreation(activeAdminCode);
+}
+
+loadQrCodes();

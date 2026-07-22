@@ -7,11 +7,12 @@
     "node": ">=20"
   },
   "scripts": {
-    "dev": "node --watch src/server.js",
-    "start": "node src/server.js",
+    "dev": "node --env-file=.env --watch src/server.js",
+    "start": "node --env-file=.env src/server.js",
     "check": "node --check src/server.js && node --check public/js/create-qr.js"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.110.7",
     "express": "^5.1.0",
     "qrcode": "^1.5.4"
   }
