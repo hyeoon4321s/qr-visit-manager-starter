@@ -1447,11 +1447,18 @@ footer {
 
 .danger-button {
   color: #a13c35;
+  background: #fff9f7;
 }
 
 .danger-button:hover {
   border-color: #a13c35;
   color: #a13c35;
+  background: #fff0ed;
+}
+
+.danger-button:disabled {
+  cursor: wait;
+  opacity: 0.6;
 }
 
 .unlock-form {

@@ -234,6 +234,48 @@ function createQrCard(qrCode) {
   downloadLink.download = makeSafeFileName(qrCode.title);
   actions.append(openLink, copyButton, downloadLink);
 
+  if (activeAdminCode === demoAdminCode) {
+    const deleteButton = createElement("button", "icon-button danger-button", "삭제");
+    deleteButton.type = "button";
+    deleteButton.setAttribute("aria-label", `${qrCode.title} QR 삭제`);
+    deleteButton.addEventListener("click", async () => {
+      const confirmed = window.confirm(
+        `\"${qrCode.title}\" QR과 누적 방문 기록을 모두 삭제할까요?`,
+      );
+
+      if (!confirmed) {
+        return;
+      }
+
+      deleteButton.disabled = true;
+      deleteButton.textContent = "삭제 중...";
+
+      try {
+        const response = await fetch(`/api/qr/${encodeURIComponent(qrCode.slug)}`, {
+          method: "DELETE",
+          headers: { "x-admin-code": activeAdminCode },
+        });
+        const result = await response.json();
+
+        if (!response.ok) {
+          throw new Error(result.error ?? "QR을 삭제하지 못했습니다.");
+        }
+
+        await loadQrCodes();
+        setMessage(
+          listMessage,
+          `\"${qrCode.title}\" QR과 방문 기록을 삭제했습니다.`,
+          "success",
+        );
+      } catch (error) {
+        deleteButton.disabled = false;
+        deleteButton.textContent = "삭제";
+        setMessage(listMessage, error.message, "error");
+      }
+    });
+    actions.append(deleteButton);
+  }
+
   card.append(imageFrame, content, actions);
   return card;
 }
@@ -271,6 +313,7 @@ async function loadQrCodes() {
 unlockForm.addEventListener("submit", (event) => {
   event.preventDefault();
   unlockCreation(adminCodeInput.value.trim());
+  loadQrCodes();
 });
 
 copyUrlButton.addEventListener("click", () => {

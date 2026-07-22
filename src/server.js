@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 import { fileURLToPath } from "node:url";
-import { list, put } from "@vercel/blob";
+import { del, list, put } from "@vercel/blob";
 import express from "express";
 import QRCode from "qrcode";
 
@@ -208,6 +208,41 @@ app.post(
         qr: { ...createdQr, visit_count: 0, last_visited_at: null },
         trackingUrl,
         qrImageDataUrl,
+      });
+    } catch (error) {
+      return next(error);
+    }
+  },
+);
+
+// ADMIN을 입력한 관리자만 QR 정보와 해당 QR의 방문 기록을 함께 삭제할 수 있습니다.
+app.delete(
+  "/api/qr/:slug",
+  requireStorage,
+  requireAdmin,
+  async (request, response, next) => {
+    try {
+      const qrRecord = await getQrRecord(request.params.slug);
+
+      if (!qrRecord) {
+        return response.status(404).json({ error: "삭제할 QR 정보를 찾을 수 없습니다." });
+      }
+
+      // QR 정보를 먼저 삭제하면 삭제 도중 새로운 스캔 요청이 들어와도 더 이상 이동되지 않습니다.
+      await del(`${qrPrefix}${qrRecord.slug}.json`);
+
+      const visitBlobs = await listAllBlobs(`${visitPrefix}${qrRecord.slug}/`);
+      const visitPathnames = visitBlobs.map((blob) => blob.pathname);
+
+      // 한 요청이 지나치게 커지지 않도록 방문 기록을 1,000개씩 나누어 삭제합니다.
+      for (let index = 0; index < visitPathnames.length; index += 1000) {
+        await del(visitPathnames.slice(index, index + 1000));
+      }
+
+      return response.json({
+        deleted: true,
+        slug: qrRecord.slug,
+        deletedVisitCount: visitPathnames.length,
       });
     } catch (error) {
       return next(error);
