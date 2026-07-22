@@ -3,97 +3,11 @@
   <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="QR 코드별 누적 방문 횟수와 연결 정보를 확인합니다.">
-    <title>QR 방문 관리자 · 방문 통계</title>
-    <link rel="stylesheet" href="/css/style.css">
-    <script src="/js/admin.js" defer></script>
+    <meta http-equiv="refresh" content="0; url=/">
+    <title>QR 생성 화면으로 이동</title>
   </head>
   <body>
-    <header class="site-header">
-      <a class="brand" href="/" aria-label="QR 방문 관리자 홈">
-        <span class="brand-mark" aria-hidden="true">⌗</span>
-        <span>QR 방문 관리자</span>
-      </a>
-      <nav class="main-nav" aria-label="주요 메뉴">
-        <a class="nav-link" href="/">QR 만들기</a>
-        <a class="nav-link is-active" href="/admin">방문 통계</a>
-      </nav>
-    </header>
-
-    <main class="admin-main">
-      <section class="admin-hero">
-        <div>
-          <span class="eyebrow">관리자 화면</span>
-          <h1>QR 방문 현황</h1>
-          <p>생성한 QR별 누적 접속 횟수와 최근 방문 시각을 한눈에 확인하세요.</p>
-        </div>
-        <a class="primary-button compact-button" href="/">새 QR 만들기 <span aria-hidden="true">＋</span></a>
-      </section>
-
-      <section class="admin-access panel" aria-labelledby="access-title">
-        <div>
-          <h2 id="access-title">통계 불러오기</h2>
-          <p>.env 파일에 설정한 관리자 키를 입력하세요.</p>
-        </div>
-        <form id="admin-form" class="admin-key-form">
-          <label class="sr-only" for="admin-key">관리자 키</label>
-          <input
-            id="admin-key"
-            type="password"
-            autocomplete="current-password"
-            placeholder="ADMIN_API_KEY"
-            required
-          >
-          <button id="load-button" class="primary-button compact-button" type="submit">통계 불러오기</button>
-        </form>
-        <p id="admin-message" class="form-message full-width" role="status" aria-live="polite"></p>
-        <div id="test-mode-note" class="test-key-guide full-width" hidden>
-          <span class="test-label">로컬 테스트 모드</span>
-          <p>관리자 키 <code id="test-admin-key"></code></p>
-          <p>방문자 키 <strong>필요 없음</strong></p>
-        </div>
-      </section>
-
-      <section id="dashboard" hidden>
-        <div class="summary-grid" aria-label="전체 통계 요약">
-          <article class="summary-card featured">
-            <span>전체 방문</span>
-            <strong id="total-visits">0</strong>
-            <small>모든 QR 누적 접속</small>
-          </article>
-          <article class="summary-card">
-            <span>만든 QR</span>
-            <strong id="total-codes">0</strong>
-            <small>저장된 전체 코드</small>
-          </article>
-          <article class="summary-card">
-            <span>사용 중</span>
-            <strong id="active-codes">0</strong>
-            <small>현재 연결 가능한 코드</small>
-          </article>
-        </div>
-
-        <div class="list-heading">
-          <div>
-            <span class="eyebrow">QR 목록</span>
-            <h2>코드별 방문 통계</h2>
-          </div>
-          <button id="refresh-button" class="secondary-button" type="button">새로고침</button>
-        </div>
-
-        <div id="empty-list" class="panel empty-list" hidden>
-          <strong>아직 생성된 QR 코드가 없습니다.</strong>
-          <p>첫 QR을 만들면 이곳에서 방문 통계를 확인할 수 있습니다.</p>
-          <a class="quiet-link" href="/">첫 QR 만들기 →</a>
-        </div>
-
-        <div id="qr-list" class="qr-list" aria-live="polite"></div>
-      </section>
-    </main>
-
-    <footer>
-      <span>QR 방문 관리자</span>
-      <span>방문자 개인정보를 저장하지 않는 간단한 누적 통계</span>
-    </footer>
+    <p><a href="/">QR 생성 화면으로 이동하기</a></p>
+    <script>window.location.replace("/");</script>
   </body>
 </html>

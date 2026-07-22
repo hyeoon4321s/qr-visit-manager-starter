@@ -999,3 +999,143 @@ footer {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* =========================================================
+   단순 QR 생성 목록
+   ========================================================= */
+
+.field-label small {
+  color: var(--ink-soft);
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.saved-section {
+  margin-top: 72px;
+}
+
+.saved-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.saved-actions .secondary-button {
+  min-height: 40px;
+}
+
+.qr-gallery {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.saved-qr-card {
+  display: grid;
+  grid-template-columns: 132px minmax(0, 1fr);
+  gap: 18px;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  background: var(--paper);
+  box-shadow: 0 10px 32px rgba(21, 53, 45, 0.06);
+}
+
+.saved-qr-image {
+  grid-row: span 2;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: white;
+}
+
+.saved-qr-image img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 8px;
+}
+
+.saved-qr-content {
+  min-width: 0;
+  align-self: center;
+}
+
+.saved-qr-content h3 {
+  margin: 0 0 9px;
+  overflow: hidden;
+  font-size: 1.05rem;
+  letter-spacing: -0.035em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.saved-qr-url {
+  display: block;
+  overflow: hidden;
+  color: var(--forest);
+  font-size: 0.78rem;
+  text-decoration: none;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.saved-qr-url:hover {
+  text-decoration: underline;
+}
+
+.saved-qr-date {
+  display: block;
+  margin-top: 12px;
+  color: var(--ink-soft);
+  font-size: 0.7rem;
+}
+
+.saved-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  align-self: end;
+}
+
+.saved-download {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+}
+
+.danger-button {
+  color: #a13c35;
+}
+
+.danger-button:hover {
+  border-color: #a13c35;
+  color: #a13c35;
+}
+
+@media (max-width: 900px) {
+  .qr-gallery {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 620px) {
+  .saved-section {
+    margin-top: 48px;
+  }
+
+  .saved-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .saved-qr-card {
+    grid-template-columns: 94px minmax(0, 1fr);
+    gap: 13px;
+    padding: 14px;
+  }
+
+  .saved-card-actions {
+    grid-column: 1 / -1;
+  }
+}
