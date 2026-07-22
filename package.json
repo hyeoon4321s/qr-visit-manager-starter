@@ -12,7 +12,7 @@
     "check": "node --check src/server.js && node --check public/js/create-qr.js"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.110.7",
+    "@upstash/redis": "^1.35.8",
     "express": "^5.1.0",
     "qrcode": "^1.5.4"
   }

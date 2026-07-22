@@ -2,17 +2,17 @@ import { fileURLToPath } from "node:url";
 import crypto from "node:crypto";
 import express from "express";
 import QRCode from "qrcode";
-import { createClient } from "@supabase/supabase-js";
+import { Redis } from "@upstash/redis";
 
 const app = express();
 const port = Number(process.env.PORT ?? 3000);
 const publicDirectory = fileURLToPath(new URL("../public", import.meta.url));
 
-// 학습용 공개 프로젝트이므로 Supabase 주소와 anon 공개 키를 코드에 직접 넣습니다.
-// 이 키는 비밀 키가 아니며 RLS 정책이 허용한 작업만 수행할 수 있습니다.
-const supabaseUrl = "https://wezmcgxpkipjjvkvrtmf.supabase.co";
-const supabasePublicKey =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indlem1jZ3hwa2lwamp2a3ZydG1mIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ1MjQ4MzcsImV4cCI6MjEwMDEwMDgzN30.nGYdgoIklTz1KZQ9XJz0T7f9MFiyFWZN4tfS3dRMQZg";
+const redisUrl = process.env.UPSTASH_REDIS_REST_URL ?? process.env.KV_REST_API_URL;
+const redisToken = process.env.UPSTASH_REDIS_REST_TOKEN ?? process.env.KV_REST_API_TOKEN;
+const storageReady = Boolean(redisUrl && redisToken);
+const redis = storageReady ? new Redis({ url: redisUrl, token: redisToken }) : null;
+const qrIndexKey = "qr-board:index";
 
 // 학습용 고정 관리자 코드입니다. 실제 보안 목적의 비밀 값이 아닙니다.
 const adminCode = "ADMIN";
@@ -26,10 +26,6 @@ function isValidWebUrl(value) {
   }
 }
 
-const supabase = createClient(supabaseUrl, supabasePublicKey, {
-  auth: { autoRefreshToken: false, persistSession: false },
-});
-
 app.disable("x-powered-by");
 app.set("trust proxy", true);
 app.use(express.json({ limit: "16kb" }));
@@ -41,6 +37,28 @@ function requireAdmin(request, response, next) {
   }
 
   return next();
+}
+
+function requireStorage(_request, response, next) {
+  if (!storageReady) {
+    return response.status(503).json({
+      error: "Vercel 프로젝트에 Upstash Redis 저장소를 연결해 주세요.",
+    });
+  }
+
+  return next();
+}
+
+function getQrRecordKey(slug) {
+  return `qr-board:code:${slug}`;
+}
+
+function getVisitCountKey(slug) {
+  return `qr-board:visits:${slug}`;
+}
+
+function getLastVisitKey(slug) {
+  return `qr-board:last-visit:${slug}`;
 }
 
 function getPublicBaseUrl(request) {
@@ -62,10 +80,13 @@ app.get("/", (_request, response) => {
 app.get("/admin", (_request, response) => response.redirect(302, "/"));
 
 app.get("/health", (_request, response) => {
-  response.json({
-    ok: true,
+  response.status(storageReady ? 200 : 503).json({
+    ok: storageReady,
     mode: "public-stats",
-    message: "QR 생성 및 방문 통계 서버가 정상적으로 실행 중입니다.",
+    storage: "vercel-upstash-redis",
+    message: storageReady
+      ? "QR 생성 및 방문 통계 서버가 정상적으로 실행 중입니다."
+      : "Vercel에서 Upstash Redis 연결이 필요합니다.",
   });
 });
 
@@ -76,26 +97,37 @@ app.get("/api/config", (_request, response) => {
 });
 
 // 일반 방문자도 생성된 QR 목록과 방문 통계를 볼 수 있습니다.
-app.get("/api/qr", async (request, response, next) => {
+app.get("/api/qr", requireStorage, async (request, response, next) => {
   try {
-    const { data, error } = await supabase
-      .from("qr_codes")
-      .select(
-        "id, slug, title, target_value, visit_count, is_active, created_at, last_visited_at",
-      )
-      .order("created_at", { ascending: false })
-      .limit(100);
+    const slugs = await redis.zrange(qrIndexKey, 0, 99, { rev: true });
+    const pipeline = redis.pipeline();
 
-    if (error) {
-      throw error;
+    for (const slug of slugs) {
+      pipeline.get(getQrRecordKey(slug));
+      pipeline.get(getVisitCountKey(slug));
+      pipeline.get(getLastVisitKey(slug));
     }
 
+    const storedValues = slugs.length > 0 ? await pipeline.exec() : [];
+
     const publicBaseUrl = getPublicBaseUrl(request);
-    const qrCodes = data.map((qrCode) => ({
-      ...qrCode,
-      tracking_url: `${publicBaseUrl}/r/${qrCode.slug}`,
-      image_url: `${publicBaseUrl}/api/qr/${qrCode.slug}/image`,
-    }));
+    const qrCodes = slugs
+      .map((slug, index) => {
+        const qrCode = storedValues[index * 3];
+
+        if (!qrCode) {
+          return null;
+        }
+
+        return {
+          ...qrCode,
+          visit_count: Number(storedValues[index * 3 + 1] ?? 0),
+          last_visited_at: storedValues[index * 3 + 2] ?? null,
+          tracking_url: `${publicBaseUrl}/r/${slug}`,
+          image_url: `${publicBaseUrl}/api/qr/${slug}/image`,
+        };
+      })
+      .filter(Boolean);
 
     return response.json({ qrCodes });
   } catch (error) {
@@ -106,6 +138,7 @@ app.get("/api/qr", async (request, response, next) => {
 // ADMIN을 입력한 경우에만 새로운 QR 정보를 저장하고 QR 이미지를 만듭니다.
 app.post(
   "/api/qr",
+  requireStorage,
   requireAdmin,
   async (request, response, next) => {
     try {
@@ -124,20 +157,22 @@ app.post(
 
       const slug = crypto.randomBytes(9).toString("base64url");
       const trackingUrl = `${getPublicBaseUrl(request)}/r/${slug}`;
-      const { data: createdQr, error } = await supabase
-        .from("qr_codes")
-        .insert({
-          slug,
-          title,
-          target_type: "url",
-          target_value: url,
-        })
-        .select("id, slug, title, target_value, visit_count, created_at")
-        .single();
+      const createdQr = {
+        id: crypto.randomUUID(),
+        slug,
+        title,
+        target_value: url,
+        visit_count: 0,
+        is_active: true,
+        created_at: new Date().toISOString(),
+        last_visited_at: null,
+      };
 
-      if (error) {
-        throw error;
-      }
+      const pipeline = redis.pipeline();
+      pipeline.set(getQrRecordKey(slug), createdQr);
+      pipeline.set(getVisitCountKey(slug), 0);
+      pipeline.zadd(qrIndexKey, { score: Date.now(), member: slug });
+      await pipeline.exec();
 
       const qrImageDataUrl = await QRCode.toDataURL(trackingUrl, {
         type: "image/png",
@@ -160,17 +195,10 @@ app.post(
 // QR 목록 카드에서 사용할 PNG 이미지를 누구나 내려받을 수 있습니다.
 app.get(
   "/api/qr/:slug/image",
+  requireStorage,
   async (request, response, next) => {
     try {
-      const { data, error } = await supabase
-        .from("qr_codes")
-        .select("slug")
-        .eq("slug", request.params.slug)
-        .maybeSingle();
-
-      if (error) {
-        throw error;
-      }
+      const data = await redis.get(getQrRecordKey(request.params.slug));
 
       if (!data) {
         return response.status(404).json({ error: "QR 정보를 찾을 수 없습니다." });
@@ -196,21 +224,23 @@ app.get(
 // QR을 스캔하면 방문 횟수를 기록한 다음 원래 웹 주소로 이동합니다.
 app.get("/r/:slug", async (request, response, next) => {
   try {
-    const { data, error } = await supabase.rpc("record_qr_visit", {
-      p_slug: request.params.slug,
-    });
-
-    if (error) {
-      throw error;
+    if (!storageReady) {
+      return response.status(503).send("Vercel 저장소 연결이 필요합니다.");
     }
 
-    const qrResult = data?.[0];
+    const qrResult = await redis.get(getQrRecordKey(request.params.slug));
 
-    if (!qrResult) {
+    if (!qrResult || !qrResult.is_active) {
       return response.status(404).send("사용할 수 없거나 존재하지 않는 QR 코드입니다.");
     }
 
-    return response.redirect(302, qrResult.result_target_value);
+    const visitedAt = new Date().toISOString();
+    const pipeline = redis.pipeline();
+    pipeline.incr(getVisitCountKey(request.params.slug));
+    pipeline.set(getLastVisitKey(request.params.slug), visitedAt);
+    await pipeline.exec();
+
+    return response.redirect(302, qrResult.target_value);
   } catch (error) {
     return next(error);
   }
@@ -218,34 +248,8 @@ app.get("/r/:slug", async (request, response, next) => {
 
 app.use((error, _request, response, _next) => {
   console.error("QR 서버 오류:", error);
-
-  if (error.code === "PGRST205" || error.message?.includes("schema cache")) {
-    return response.status(500).json({
-      error: "Supabase SQL Editor에서 supabase/schema.sql을 먼저 실행해 주세요.",
-    });
-  }
-
-  if (
-    error.code === "PGRST202" ||
-    error.message?.includes("record_qr_visit")
-  ) {
-    return response.status(500).json({
-      error: "Supabase SQL Editor에서 supabase/schema.sql을 다시 실행해 주세요.",
-    });
-  }
-
-  if (
-    error.code === "42501" ||
-    error.message?.includes("row-level security") ||
-    error.message?.includes("permission denied")
-  ) {
-    return response.status(500).json({
-      error: "Supabase SQL Editor에서 supabase/open-demo.sql을 실행해 주세요.",
-    });
-  }
-
   return response.status(500).json({
-    error: `Supabase 오류: ${error.message ?? "알 수 없는 오류"}`,
+    error: `Vercel 저장소 오류: ${error.message ?? "알 수 없는 오류"}`,
   });
 });
 
