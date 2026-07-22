@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="관리자가 QR을 만들고 누구나 QR 목록과 방문 통계를 확인합니다.">
+    <meta name="theme-color" content="#123f33">
     <title>QR 링크 보드</title>
     <link rel="stylesheet" href="/css/style.css">
     <script src="/js/create-qr.js" defer></script>
@@ -15,19 +16,49 @@
         <span>QR 링크 보드</span>
       </a>
       <nav class="main-nav" aria-label="주요 메뉴">
-        <a class="nav-link" href="#create">QR 만들기</a>
-        <a class="nav-link is-active" href="#qr-board">공개 QR 목록</a>
+        <a class="nav-link is-active" href="#create" aria-current="location">QR 만들기</a>
+        <a class="nav-link" href="#qr-board">공개 QR 목록</a>
       </nav>
     </header>
 
     <main>
       <section class="hero">
-        <div class="eyebrow">만들기는 관리자만 · 목록과 통계는 누구나</div>
-        <h1>QR을 만들고<br><span>방문 현황을 함께 보세요.</span></h1>
-        <p>
-          관리자는 ADMIN을 입력해 새로운 QR을 만들 수 있습니다.
-          방문자는 아래에서 생성된 QR과 누적 접속 횟수를 바로 확인할 수 있습니다.
-        </p>
+        <div class="hero-copy">
+          <div class="eyebrow">간편한 QR 링크 관리</div>
+          <h1>QR을 만들고<br><span>방문 흐름을 한눈에.</span></h1>
+          <p>
+            관리자는 새로운 QR을 만들고, 방문자는 공개 목록에서 QR과 누적 접속 횟수를
+            바로 확인할 수 있습니다.
+          </p>
+          <div class="hero-actions">
+            <a class="primary-button hero-primary" href="#create">
+              <span>새 QR 만들기</span>
+              <span aria-hidden="true">→</span>
+            </a>
+            <a class="hero-text-link" href="#qr-board">공개 목록 살펴보기</a>
+          </div>
+        </div>
+
+        <aside class="hero-showcase" aria-label="QR 링크 보드의 주요 기능">
+          <div class="showcase-heading">
+            <span>QR LINK BOARD</span>
+            <span class="showcase-status"><i aria-hidden="true"></i> 공개 목록</span>
+          </div>
+          <div class="showcase-main">
+            <div class="showcase-qr" aria-hidden="true">
+              <span></span><span></span><span></span><span></span>
+            </div>
+            <div class="showcase-copy">
+              <small>하나의 링크로</small>
+              <strong>생성부터<br>방문 집계까지</strong>
+            </div>
+          </div>
+          <ol class="showcase-flow">
+            <li><span>01</span><strong>링크 입력</strong></li>
+            <li><span>02</span><strong>QR 생성</strong></li>
+            <li><span>03</span><strong>방문 확인</strong></li>
+          </ol>
+        </aside>
       </section>
 
       <section id="create" class="workspace" aria-label="QR 생성 작업 영역">
@@ -47,13 +78,12 @@
                 id="admin-code"
                 name="adminCode"
                 type="text"
-                placeholder="ADMIN 입력"
+                placeholder="관리자 코드 입력"
                 autocomplete="off"
                 required
               >
               <button class="secondary-button" type="submit">입력</button>
             </div>
-            <p class="field-help">학습용 관리자 코드는 <strong>ADMIN</strong>입니다.</p>
             <p id="unlock-message" class="form-message" role="status" aria-live="polite"></p>
           </form>
 
@@ -103,7 +133,7 @@
               <span></span><span></span><span></span>
             </div>
             <strong>관리자 생성 기능</strong>
-            <p>ADMIN을 입력하고 QR 이름과 웹 주소를 작성해 주세요.</p>
+            <p>관리자 코드를 입력하고 QR 이름과 웹 주소를 작성해 주세요.</p>
           </div>
 
           <div id="qr-result" class="qr-result" hidden>

@@ -21,6 +21,9 @@ const emptyList = document.querySelector("#empty-list");
 const qrList = document.querySelector("#qr-list");
 const siteHeader = document.querySelector(".site-header");
 const navigationLinks = [...document.querySelectorAll('.nav-link[href^="#"]')];
+const sectionJumpLinks = [
+  ...document.querySelectorAll('a[href="#create"], a[href="#qr-board"]'),
+];
 
 const sessionKey = "qr-board-admin-code";
 const demoAdminCode = "ADMIN";
@@ -67,7 +70,10 @@ function updateActiveNavigation() {
   const board = document.querySelector("#qr-board");
   const headerHeight = siteHeader?.getBoundingClientRect().height ?? 0;
   const currentLine = window.scrollY + headerHeight + 40;
-  const activeHash = board && currentLine >= board.offsetTop ? "#qr-board" : "#create";
+  const reachedPageEnd =
+    Math.ceil(window.scrollY + window.innerHeight) >= document.documentElement.scrollHeight - 2;
+  const activeHash =
+    board && (currentLine >= board.offsetTop || reachedPageEnd) ? "#qr-board" : "#create";
 
   navigationLinks.forEach((link) => {
     const isActive = link.hash === activeHash;
@@ -81,7 +87,7 @@ function updateActiveNavigation() {
   });
 }
 
-navigationLinks.forEach((link) => {
+sectionJumpLinks.forEach((link) => {
   link.addEventListener("click", (event) => {
     event.preventDefault();
     moveToNavigationTarget(link.hash);
@@ -164,7 +170,7 @@ function unlockCreation(code) {
     sessionStorage.removeItem(sessionKey);
     form.hidden = true;
     lockChip.textContent = "잠김";
-    setMessage(unlockMessage, "ADMIN을 정확히 입력해 주세요.", "error");
+    setMessage(unlockMessage, "관리자 코드가 올바르지 않습니다.", "error");
     return false;
   }
 
@@ -281,7 +287,7 @@ form.addEventListener("submit", async (event) => {
   const url = urlInput.value.trim();
 
   if (!activeAdminCode) {
-    setMessage(formMessage, "먼저 ADMIN을 입력해 주세요.", "error");
+    setMessage(formMessage, "먼저 관리자 코드를 입력해 주세요.", "error");
     return;
   }
 

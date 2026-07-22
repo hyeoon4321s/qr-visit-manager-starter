@@ -35,7 +35,7 @@ app.use(express.static(publicDirectory, { index: false }));
 
 function requireAdmin(request, response, next) {
   if (request.get("x-admin-code") !== adminCode) {
-    return response.status(401).json({ error: "관리자 코드 ADMIN을 정확히 입력해 주세요." });
+    return response.status(401).json({ error: "관리자 코드가 올바르지 않습니다." });
   }
 
   return next();
@@ -128,12 +128,6 @@ app.get("/health", (_request, response) => {
       ? "QR 생성 및 방문 통계 서버가 정상적으로 실행 중입니다."
       : "Vercel Blob 저장소 연결이 필요합니다.",
   });
-});
-
-// 관리자 코드가 공개된 학습용이므로 화면에도 코드를 알려줍니다.
-app.get("/api/config", (_request, response) => {
-  response.setHeader("Cache-Control", "no-store");
-  response.json({ adminCode, securityMode: "demo" });
 });
 
 // 일반 방문자도 생성된 QR 목록과 방문 통계를 볼 수 있습니다.
