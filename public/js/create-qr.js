@@ -29,11 +29,25 @@ const sessionKey = "qr-board-admin-code";
 const demoAdminCode = "ADMIN";
 const numberFormatter = new Intl.NumberFormat("ko-KR");
 const dateFormatter = new Intl.DateTimeFormat("ko-KR", {
+  timeZone: "Asia/Seoul",
   year: "numeric",
   month: "short",
   day: "numeric",
   hour: "2-digit",
   minute: "2-digit",
+});
+const recentDateFormatter = new Intl.DateTimeFormat("ko-KR", {
+  timeZone: "Asia/Seoul",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+const recentTimeFormatter = new Intl.DateTimeFormat("ko-KR", {
+  timeZone: "Asia/Seoul",
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+  hourCycle: "h23",
 });
 
 let activeAdminCode = sessionStorage.getItem(sessionKey) ?? "";
@@ -151,6 +165,36 @@ function formatDate(value) {
   return value ? dateFormatter.format(new Date(value)) : "아직 방문 없음";
 }
 
+// 최근 접속 일시는 카드 안에서 잘리지 않도록 날짜와 시각을 두 줄로 나눠 표시합니다.
+function createRecentVisitTime(value) {
+  const time = createElement("time", "public-stat-datetime");
+
+  if (!value) {
+    time.classList.add("is-empty");
+    time.textContent = "아직 방문 없음";
+    return time;
+  }
+
+  const visitedAt = new Date(value);
+
+  if (Number.isNaN(visitedAt.getTime())) {
+    time.classList.add("is-empty");
+    time.textContent = "접속 시각 확인 불가";
+    return time;
+  }
+
+  const dateText = recentDateFormatter.format(visitedAt).replace(/\.\s*/g, ".").replace(/\.$/, "");
+  const timeText = recentTimeFormatter.format(visitedAt);
+
+  time.dateTime = value;
+  time.title = `${dateText} ${timeText} (한국 시간)`;
+  time.append(
+    createElement("span", "public-stat-date", dateText),
+    createElement("span", "public-stat-time", timeText),
+  );
+  return time;
+}
+
 async function copyText(value, button) {
   try {
     await navigator.clipboard.writeText(value);
@@ -206,8 +250,8 @@ function createQrCard(qrCode) {
   );
   const recentStat = createElement("div", "public-stat");
   recentStat.append(
-    createElement("span", "", "최근 접속"),
-    createElement("strong", "", formatDate(qrCode.last_visited_at)),
+    createElement("span", "", "최근 접속 · KST"),
+    createRecentVisitTime(qrCode.last_visited_at),
   );
   stats.append(visitStat, recentStat);
 
