@@ -12,7 +12,7 @@
     "check": "node --check src/server.js && node --check public/js/create-qr.js"
   },
   "dependencies": {
-    "@upstash/redis": "^1.35.8",
+    "@vercel/blob": "^2.6.1",
     "express": "^5.1.0",
     "qrcode": "^1.5.4"
   }
