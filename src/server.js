@@ -87,40 +87,40 @@ if (isExampleValue(configuredAdminKey) || configuredAdminKey.length < 12) {
   configurationErrors.push("ADMIN_API_KEY를 12자 이상의 새로운 관리자 키로 변경해 주세요.");
 }
 
-if (configurationErrors.length > 0) {
-  throw new Error(`환경변수 설정을 확인해 주세요:\n- ${configurationErrors.join("\n- ")}`);
+const configurationReady = configurationErrors.length === 0;
+
+if (!configurationReady) {
+  console.error(`환경변수 설정 오류:\n- ${configurationErrors.join("\n- ")}`);
 }
 
 const app = express();
 const port = Number(process.env.PORT ?? 3000);
-const publicBaseUrl = configuredPublicBaseUrl.replace(/\/$/, "");
+const publicBaseUrl = isValidUrl(configuredPublicBaseUrl)
+  ? configuredPublicBaseUrl.replace(/\/$/, "")
+  : "http://localhost:3000";
 const publicDirectory = fileURLToPath(new URL("../public", import.meta.url));
 const adminDatabaseKey = localTestMode ? supabasePublicKey : supabaseServerKey;
 
 // 공개용 클라이언트는 방문 횟수를 기록하는 데이터베이스 함수만 호출합니다.
-const publicSupabase = createClient(
-  supabaseUrl,
-  supabasePublicKey,
-  {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-    },
-  },
-);
+const publicSupabase = configurationReady
+  ? createClient(supabaseUrl, supabasePublicKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    })
+  : null;
 
 // 관리자용 클라이언트는 QR 생성과 목록 조회에만 사용합니다.
 // 로컬 테스트 모드에서는 공개 키와 테스트용 RLS 정책을 사용합니다.
-const adminSupabase = createClient(
-  supabaseUrl,
-  adminDatabaseKey,
-  {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-    },
-  },
-);
+const adminSupabase = configurationReady
+  ? createClient(supabaseUrl, adminDatabaseKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    })
+  : null;
 
 app.disable("x-powered-by");
 app.use(express.json({ limit: "16kb" }));
@@ -149,6 +149,18 @@ function requireAdmin(request, response, next) {
   return next();
 }
 
+// 설정이 부족해도 함수 전체를 종료하지 않고 필요한 항목을 안전하게 알려줍니다.
+function requireConfiguration(_request, response, next) {
+  if (!configurationReady) {
+    return response.status(503).json({
+      error: "Vercel 환경변수 설정이 완료되지 않았습니다.",
+      problems: configurationErrors,
+    });
+  }
+
+  return next();
+}
+
 function isValidHttpUrl(value) {
   try {
     const parsedUrl = new URL(value);
@@ -170,20 +182,32 @@ function escapeHtml(value) {
 
 // QR 생성 화면을 보여줍니다.
 app.get("/", (_request, response) => {
+  if (process.env.VERCEL) {
+    return response.redirect(302, "/index.html");
+  }
+
   response.sendFile("index.html", { root: publicDirectory });
 });
 
 // 누적 방문 통계를 확인하는 관리자 화면을 보여줍니다.
 app.get("/admin", (_request, response) => {
+  if (process.env.VERCEL) {
+    return response.redirect(302, "/admin.html");
+  }
+
   response.sendFile("admin.html", { root: publicDirectory });
 });
 
 // 서버가 정상 실행 중인지 확인합니다.
 app.get("/health", (_request, response) => {
-  response.json({
-    ok: true,
-    message: "QR 방문 통계 서버가 실행 중입니다.",
+  response.status(configurationReady ? 200 : 503).json({
+    ok: configurationReady,
+    configured: configurationReady,
+    message: configurationReady
+      ? "QR 방문 통계 서버가 실행 중입니다."
+      : "서버는 실행 중이지만 환경변수 설정이 필요합니다.",
     mode: localTestMode ? "local-test" : "secure",
+    problems: configurationErrors,
   });
 });
 
@@ -204,7 +228,11 @@ app.get("/api/test-config", (_request, response) => {
 });
 
 // 새로운 QR 정보를 저장하고 내려받을 수 있는 PNG 이미지 데이터를 반환합니다.
-app.post("/api/admin/qr", requireAdmin, async (request, response, next) => {
+app.post(
+  "/api/admin/qr",
+  requireConfiguration,
+  requireAdmin,
+  async (request, response, next) => {
   try {
     const title = typeof request.body.title === "string" ? request.body.title.trim() : "";
     const targetType = request.body.targetType;
@@ -263,10 +291,15 @@ app.post("/api/admin/qr", requireAdmin, async (request, response, next) => {
   } catch (error) {
     return next(error);
   }
-});
+  },
+);
 
 // 관리자 화면에 필요한 QR 목록과 누적 방문 횟수를 반환합니다.
-app.get("/api/admin/qr", requireAdmin, async (_request, response, next) => {
+app.get(
+  "/api/admin/qr",
+  requireConfiguration,
+  requireAdmin,
+  async (_request, response, next) => {
   try {
     const { data, error } = await adminSupabase
       .from("qr_codes")
@@ -289,10 +322,15 @@ app.get("/api/admin/qr", requireAdmin, async (_request, response, next) => {
   } catch (error) {
     return next(error);
   }
-});
+  },
+);
 
 // 이미 만든 QR 이미지를 다시 내려받을 수 있도록 PNG 파일을 반환합니다.
-app.get("/api/admin/qr/:slug/image", requireAdmin, async (request, response, next) => {
+app.get(
+  "/api/admin/qr/:slug/image",
+  requireConfiguration,
+  requireAdmin,
+  async (request, response, next) => {
   try {
     const { data, error } = await adminSupabase
       .from("qr_codes")
@@ -322,11 +360,12 @@ app.get("/api/admin/qr/:slug/image", requireAdmin, async (request, response, nex
   } catch (error) {
     return next(error);
   }
-});
+  },
+);
 
 // QR 스캔 때 호출되는 공개 주소입니다.
 // 방문 횟수를 기록한 다음 목표 주소로 이동시키거나 안내 문자를 보여줍니다.
-app.get("/r/:slug", async (request, response, next) => {
+app.get("/r/:slug", requireConfiguration, async (request, response, next) => {
   try {
     const { data, error } = await publicSupabase.rpc("record_qr_visit", {
       p_slug: request.params.slug,
