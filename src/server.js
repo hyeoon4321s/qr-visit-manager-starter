@@ -7,10 +7,12 @@ import { createClient } from "@supabase/supabase-js";
 const app = express();
 const port = Number(process.env.PORT ?? 3000);
 const publicDirectory = fileURLToPath(new URL("../public", import.meta.url));
-const supabaseUrl = process.env.SUPABASE_URL?.trim();
-const supabasePublicKey = (
-  process.env.SUPABASE_PUBLISHABLE_KEY ?? process.env.SUPABASE_ANON_KEY
-)?.trim();
+
+// 학습용 공개 프로젝트이므로 Supabase 주소와 anon 공개 키를 코드에 직접 넣습니다.
+// 이 키는 비밀 키가 아니며 RLS 정책이 허용한 작업만 수행할 수 있습니다.
+const supabaseUrl = "https://wezmcgxpkipjjvkvrtmf.supabase.co";
+const supabasePublicKey =
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indlem1jZ3hwa2lwamp2a3ZydG1mIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ1MjQ4MzcsImV4cCI6MjEwMDEwMDgzN30.nGYdgoIklTz1KZQ9XJz0T7f9MFiyFWZN4tfS3dRMQZg";
 
 // 학습용 고정 관리자 코드입니다. 실제 보안 목적의 비밀 값이 아닙니다.
 const adminCode = "ADMIN";
@@ -24,49 +26,14 @@ function isValidWebUrl(value) {
   }
 }
 
-function isConfiguredValue(value) {
-  return Boolean(
-    value &&
-      !value.includes("your-project") &&
-      !value.includes("your_key") &&
-      !value.includes("실제프로젝트"),
-  );
-}
-
-const configurationProblems = [];
-
-if (!isConfiguredValue(supabaseUrl) || !isValidWebUrl(supabaseUrl)) {
-  configurationProblems.push("SUPABASE_URL에 실제 Supabase 프로젝트 주소가 필요합니다.");
-}
-
-if (!isConfiguredValue(supabasePublicKey)) {
-  configurationProblems.push(
-    "SUPABASE_PUBLISHABLE_KEY 또는 SUPABASE_ANON_KEY에 실제 공개 키가 필요합니다.",
-  );
-}
-
-const configurationReady = configurationProblems.length === 0;
-const supabase = configurationReady
-  ? createClient(supabaseUrl, supabasePublicKey, {
-      auth: { autoRefreshToken: false, persistSession: false },
-    })
-  : null;
+const supabase = createClient(supabaseUrl, supabasePublicKey, {
+  auth: { autoRefreshToken: false, persistSession: false },
+});
 
 app.disable("x-powered-by");
 app.set("trust proxy", true);
 app.use(express.json({ limit: "16kb" }));
 app.use(express.static(publicDirectory, { index: false }));
-
-function requireConfiguration(_request, response, next) {
-  if (!configurationReady) {
-    return response.status(503).json({
-      error: "Supabase 연결 정보 설정이 필요합니다.",
-      problems: configurationProblems,
-    });
-  }
-
-  return next();
-}
 
 function requireAdmin(request, response, next) {
   if (request.get("x-admin-code") !== adminCode) {
@@ -95,13 +62,10 @@ app.get("/", (_request, response) => {
 app.get("/admin", (_request, response) => response.redirect(302, "/"));
 
 app.get("/health", (_request, response) => {
-  response.status(configurationReady ? 200 : 503).json({
-    ok: configurationReady,
+  response.json({
+    ok: true,
     mode: "public-stats",
-    message: configurationReady
-      ? "QR 생성 및 방문 통계 서버가 정상적으로 실행 중입니다."
-      : "Supabase 환경변수 설정이 필요합니다.",
-    problems: configurationProblems,
+    message: "QR 생성 및 방문 통계 서버가 정상적으로 실행 중입니다.",
   });
 });
 
@@ -112,7 +76,7 @@ app.get("/api/config", (_request, response) => {
 });
 
 // 일반 방문자도 생성된 QR 목록과 방문 통계를 볼 수 있습니다.
-app.get("/api/qr", requireConfiguration, async (request, response, next) => {
+app.get("/api/qr", async (request, response, next) => {
   try {
     const { data, error } = await supabase
       .from("qr_codes")
@@ -142,7 +106,6 @@ app.get("/api/qr", requireConfiguration, async (request, response, next) => {
 // ADMIN을 입력한 경우에만 새로운 QR 정보를 저장하고 QR 이미지를 만듭니다.
 app.post(
   "/api/qr",
-  requireConfiguration,
   requireAdmin,
   async (request, response, next) => {
     try {
@@ -197,7 +160,6 @@ app.post(
 // QR 목록 카드에서 사용할 PNG 이미지를 누구나 내려받을 수 있습니다.
 app.get(
   "/api/qr/:slug/image",
-  requireConfiguration,
   async (request, response, next) => {
     try {
       const { data, error } = await supabase
@@ -232,7 +194,7 @@ app.get(
 );
 
 // QR을 스캔하면 방문 횟수를 기록한 다음 원래 웹 주소로 이동합니다.
-app.get("/r/:slug", requireConfiguration, async (request, response, next) => {
+app.get("/r/:slug", async (request, response, next) => {
   try {
     const { data, error } = await supabase.rpc("record_qr_visit", {
       p_slug: request.params.slug,
@@ -257,6 +219,21 @@ app.get("/r/:slug", requireConfiguration, async (request, response, next) => {
 app.use((error, _request, response, _next) => {
   console.error("QR 서버 오류:", error);
 
+  if (error.code === "PGRST205" || error.message?.includes("schema cache")) {
+    return response.status(500).json({
+      error: "Supabase SQL Editor에서 supabase/schema.sql을 먼저 실행해 주세요.",
+    });
+  }
+
+  if (
+    error.code === "PGRST202" ||
+    error.message?.includes("record_qr_visit")
+  ) {
+    return response.status(500).json({
+      error: "Supabase SQL Editor에서 supabase/schema.sql을 다시 실행해 주세요.",
+    });
+  }
+
   if (
     error.code === "42501" ||
     error.message?.includes("row-level security") ||
@@ -268,7 +245,7 @@ app.use((error, _request, response, _next) => {
   }
 
   return response.status(500).json({
-    error: "QR 정보를 처리하는 중 오류가 발생했습니다.",
+    error: `Supabase 오류: ${error.message ?? "알 수 없는 오류"}`,
   });
 });
 
