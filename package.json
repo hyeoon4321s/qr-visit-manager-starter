@@ -1,0 +1,19 @@
+{
+  "name": "qr-visit-manager",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "node --env-file=.env --watch src/server.js",
+    "start": "node --env-file=.env src/server.js",
+    "check": "node --check src/server.js && node --check public/js/create-qr.js && node --check public/js/admin.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.110.7",
+    "express": "^5.1.0",
+    "qrcode": "^1.5.4"
+  }
+}
