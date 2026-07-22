@@ -7,7 +7,12 @@ import QRCode from "qrcode";
 const app = express();
 const port = Number(process.env.PORT ?? 3000);
 const publicDirectory = fileURLToPath(new URL("../public", import.meta.url));
-const storageReady = Boolean(process.env.BLOB_READ_WRITE_TOKEN);
+// 최신 Vercel Blob 연결은 OIDC 자동 인증을 기본으로 사용하므로 장기 토큰이 보이지 않을 수 있습니다.
+// Vercel에서는 연결된 Blob 저장소 ID로 준비 상태를 확인하고, 로컬에서는 기존 토큰도 지원합니다.
+const storageReady = Boolean(
+  process.env.BLOB_READ_WRITE_TOKEN ||
+    (process.env.VERCEL && process.env.BLOB_STORE_ID),
+);
 
 // 학습용 고정 관리자 코드입니다. 실제 서비스에서는 로그인 기능을 사용하는 것이 안전합니다.
 const adminCode = "ADMIN";
